@@ -1,0 +1,7 @@
+include: _default_yaml
+task: domain_eval_finance
+dataset_name: Finance Domain Evaluation
+doc_to_domain: "finance"
+tag:
+  - domain_eval
+  - finance

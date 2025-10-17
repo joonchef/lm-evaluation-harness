@@ -1,0 +1,7 @@
+include: _default_yaml
+task: domain_eval_defense
+dataset_name: Defense Domain Evaluation
+doc_to_domain: "defense"
+tag:
+  - domain_eval
+  - defense

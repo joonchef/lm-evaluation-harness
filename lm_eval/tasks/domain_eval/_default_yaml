@@ -1,0 +1,25 @@
+dataset_path: csv
+dataset_kwargs:
+  data_files:
+    test: domain_eval/data/domain_mc_eval_dataset.csv
+output_type: multiple_choice
+test_split: test
+doc_to_text: !function utils.doc_to_text
+doc_to_choice: !function utils.doc_to_choice
+doc_to_target: !function utils.doc_to_target
+process_docs: !function utils.process_docs
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+  - metric: acc_by_format
+    aggregation: !function utils.aggregate_by_format
+    higher_is_better: true
+  - metric: acc_by_lang
+    aggregation: !function utils.aggregate_by_lang
+    higher_is_better: true
+  - metric: acc_by_subdomain
+    aggregation: !function utils.aggregate_by_subdomain
+    higher_is_better: true
+metadata:
+  version: 1.0

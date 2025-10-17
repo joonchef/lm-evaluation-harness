@@ -1,0 +1,7 @@
+include: _default_yaml
+task: domain_eval_public
+dataset_name: Public Domain Evaluation
+doc_to_domain: "public"
+tag:
+  - domain_eval
+  - public

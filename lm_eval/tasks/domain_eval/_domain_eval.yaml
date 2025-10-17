@@ -1,0 +1,10 @@
+group: domain_eval
+task:
+  - domain_eval_public
+  - domain_eval_finance
+  - domain_eval_defense
+aggregate_metric_list:
+  - metric: acc
+    weight_by_size: true
+metadata:
+  version: 1.0
