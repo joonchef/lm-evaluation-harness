@@ -42,10 +42,14 @@ def normalize_choices(text: str) -> str:
         text = text.replace(old, new)
 
     # 3. 숫자 보기 처리
-    # 3-1. 1-5 앞에 줄바꿈 추가 (이미 있으면 중복 방지)
-    text = re.sub(r'(?<!\n)([1-5]\.)', r'\n\1', text)
+    # 3-1. 숫자 + (마침표/콜론/괄호) 앞에 줄바꿈 추가 (이미 있으면 중복 방지)
+    text = re.sub(r'(?<!\n)([1-5][.:\)])', r'\n\1', text)
 
-    # 3-2. 줄바꿈 + 숫자 + 마침표를 원 숫자로 변환
+    # 3-2. 콜론과 괄호를 마침표로 통일
+    text = re.sub(r'\n([1-5]):', r'\n\1.', text)  # 1: → 1.
+    text = re.sub(r'\n([1-5])\)', r'\n\1.', text)  # 1) → 1.
+
+    # 3-3. 줄바꿈 + 숫자 + 마침표를 원 숫자로 변환
     text = re.sub(r'\n1\.', '\n①', text)
     text = re.sub(r'\n2\.', '\n②', text)
     text = re.sub(r'\n3\.', '\n③', text)
@@ -61,7 +65,9 @@ def analyze_patterns(text: str) -> dict:
         'hangul': len(re.findall(r'\n[가나다라마]\.', text)),
         'black_circle': sum([text.count(c) for c in ['➀', '➁', '➂', '➃', '➄']]),
         'white_circle': sum([text.count(c) for c in ['①', '②', '③', '④', '⑤']]),
-        'number': len(re.findall(r'\n[1-5]\.', text)),
+        'number_dot': len(re.findall(r'\n[1-5]\.', text)),
+        'number_colon': len(re.findall(r'\n[1-5]:', text)),
+        'number_paren': len(re.findall(r'\n[1-5]\)', text)),
     }
     return patterns
 
@@ -100,7 +106,9 @@ def normalize_dataset(input_path: str, output_path: str):
     print(f"한글 보기 (가나다라마): {total_patterns['hangul']}개")
     print(f"검은 원 숫자 (➀➁➂➃➄): {total_patterns['black_circle']}개")
     print(f"흰 원 숫자 (①②③④⑤): {total_patterns['white_circle']}개")
-    print(f"숫자 보기 (1.2.3.4.5.): {total_patterns['number']}개")
+    print(f"숫자+마침표 (1.2.3.): {total_patterns['number_dot']}개")
+    print(f"숫자+콜론 (1:2:3:): {total_patterns['number_colon']}개")
+    print(f"숫자+괄호 (1)2)3)): {total_patterns['number_paren']}개")
     print()
 
     # 처리 전 샘플 출력
@@ -135,7 +143,9 @@ def normalize_dataset(input_path: str, output_path: str):
     print(f"한글 보기 (가나다라마): {total_patterns_after['hangul']}개")
     print(f"검은 원 숫자 (➀➁➂➃➄): {total_patterns_after['black_circle']}개")
     print(f"흰 원 숫자 (①②③④⑤): {total_patterns_after['white_circle']}개")
-    print(f"숫자 보기 (1.2.3.4.5.): {total_patterns_after['number']}개")
+    print(f"숫자+마침표 (1.2.3.): {total_patterns_after['number_dot']}개")
+    print(f"숫자+콜론 (1:2:3:): {total_patterns_after['number_colon']}개")
+    print(f"숫자+괄호 (1)2)3)): {total_patterns_after['number_paren']}개")
     print()
 
     # 처리 후 샘플 출력
@@ -165,7 +175,9 @@ def normalize_dataset(input_path: str, output_path: str):
     print("=" * 60)
     print(f"한글 보기 → 원 숫자: {total_patterns['hangul'] - total_patterns_after['hangul']}개 변환")
     print(f"검은 원 → 흰 원: {total_patterns['black_circle'] - total_patterns_after['black_circle']}개 변환")
-    print(f"숫자 보기 → 원 숫자: {total_patterns['number'] - total_patterns_after['number']}개 변환")
+    print(f"숫자+마침표 → 원 숫자: {total_patterns['number_dot'] - total_patterns_after['number_dot']}개 변환")
+    print(f"숫자+콜론 → 원 숫자: {total_patterns['number_colon'] - total_patterns_after['number_colon']}개 변환")
+    print(f"숫자+괄호 → 원 숫자: {total_patterns['number_paren'] - total_patterns_after['number_paren']}개 변환")
     print(f"최종 원 숫자 총계: {total_patterns_after['white_circle']}개")
 
     return True
