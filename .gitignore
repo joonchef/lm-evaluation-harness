@@ -19,6 +19,7 @@ dist/
 # IDE & editor settings
 .vscode/
 .idea/
+.claude/
 
 # Jupyter
 .ipynb_checkpoints/
