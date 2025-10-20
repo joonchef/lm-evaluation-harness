@@ -72,6 +72,60 @@ def analyze_patterns(text: str) -> dict:
     return patterns
 
 
+def classify_question_pattern(text: str) -> str:
+    """
+    문제의 선택지 패턴 분류
+
+    Returns:
+        패턴 타입 문자열
+        - 'hangul': 한글 보기
+        - 'black_circle': 검은 원 숫자
+        - 'white_circle': 흰 원 숫자
+        - 'number_dot': 숫자+마침표
+        - 'number_colon': 숫자+콜론
+        - 'number_paren': 숫자+괄호
+        - 'ox': O/X 문제
+        - 'mixed': 여러 패턴 혼용
+        - 'no_pattern': 패턴 없음
+    """
+    if not isinstance(text, str):
+        return 'unknown'
+
+    # 각 패턴 존재 여부 확인
+    has_hangul = bool(re.search(r'\n[가나다라마]\.', text))
+    has_black_circle = any(c in text for c in ['➀', '➁', '➂', '➃', '➄'])
+    has_white_circle = any(c in text for c in ['①', '②', '③', '④', '⑤'])
+    has_number_dot = bool(re.search(r'\n[1-5]\.', text))
+    has_number_colon = bool(re.search(r'\n[1-5]:', text))
+    has_number_paren = bool(re.search(r'\n[1-5]\)', text))
+    has_ox = '○' in text or '×' in text
+
+    # 패턴 수집
+    patterns = []
+    if has_hangul:
+        patterns.append('hangul')
+    if has_black_circle:
+        patterns.append('black_circle')
+    if has_white_circle:
+        patterns.append('white_circle')
+    if has_number_dot:
+        patterns.append('number_dot')
+    if has_number_colon:
+        patterns.append('number_colon')
+    if has_number_paren:
+        patterns.append('number_paren')
+    if has_ox:
+        patterns.append('ox')
+
+    # 분류
+    if not patterns:
+        return 'no_pattern'
+    elif len(patterns) == 1:
+        return patterns[0]
+    else:
+        return 'mixed'
+
+
 def normalize_dataset(input_path: str, output_path: str):
     """데이터셋 정규화 메인 함수"""
 
@@ -111,6 +165,36 @@ def normalize_dataset(input_path: str, output_path: str):
     print(f"숫자+괄호 (1)2)3)): {total_patterns['number_paren']}개")
     print()
 
+    # 케이스별 문제 수 분석
+    print("케이스별 문제 수 (처리 전)")
+    print("=" * 60)
+
+    pattern_counts_before = Counter()
+    for text in df['question']:
+        if isinstance(text, str):
+            pattern = classify_question_pattern(text)
+            pattern_counts_before[pattern] += 1
+
+    pattern_names = {
+        'hangul': '한글 보기 (가나다라마)',
+        'black_circle': '검은 원 숫자 (➀➁➂➃➄)',
+        'white_circle': '흰 원 숫자 (①②③④⑤)',
+        'number_dot': '숫자+마침표 (1.2.3.)',
+        'number_colon': '숫자+콜론 (1:2:3:)',
+        'number_paren': '숫자+괄호 (1)2)3))',
+        'ox': 'O/X 문제 (○×)',
+        'mixed': '여러 패턴 혼용',
+        'no_pattern': '패턴 없음',
+        'unknown': '알 수 없음',
+    }
+
+    for pattern in ['hangul', 'black_circle', 'white_circle', 'number_dot',
+                    'number_colon', 'number_paren', 'ox', 'mixed', 'no_pattern']:
+        count = pattern_counts_before.get(pattern, 0)
+        if count > 0:
+            print(f"{pattern_names[pattern]}: {count}개 ({count/len(df)*100:.1f}%)")
+    print()
+
     # 처리 전 샘플 출력
     print("=" * 60)
     print("처리 전 샘플 (첫 3개)")
@@ -148,6 +232,23 @@ def normalize_dataset(input_path: str, output_path: str):
     print(f"숫자+괄호 (1)2)3)): {total_patterns_after['number_paren']}개")
     print()
 
+    # 케이스별 문제 수 분석 (처리 후)
+    print("케이스별 문제 수 (처리 후)")
+    print("=" * 60)
+
+    pattern_counts_after = Counter()
+    for text in df['question']:
+        if isinstance(text, str):
+            pattern = classify_question_pattern(text)
+            pattern_counts_after[pattern] += 1
+
+    for pattern in ['hangul', 'black_circle', 'white_circle', 'number_dot',
+                    'number_colon', 'number_paren', 'ox', 'mixed', 'no_pattern']:
+        count = pattern_counts_after.get(pattern, 0)
+        if count > 0:
+            print(f"{pattern_names[pattern]}: {count}개 ({count/len(df)*100:.1f}%)")
+    print()
+
     # 처리 후 샘플 출력
     print("=" * 60)
     print("처리 후 샘플 (첫 3개)")
@@ -179,6 +280,25 @@ def normalize_dataset(input_path: str, output_path: str):
     print(f"숫자+콜론 → 원 숫자: {total_patterns['number_colon'] - total_patterns_after['number_colon']}개 변환")
     print(f"숫자+괄호 → 원 숫자: {total_patterns['number_paren'] - total_patterns_after['number_paren']}개 변환")
     print(f"최종 원 숫자 총계: {total_patterns_after['white_circle']}개")
+
+    # 케이스별 변환 성공률
+    print("\n케이스별 변환 성공률")
+    print("=" * 60)
+
+    converted_patterns = ['hangul', 'black_circle', 'number_dot', 'number_colon', 'number_paren']
+    for pattern in converted_patterns:
+        before_count = pattern_counts_before.get(pattern, 0)
+        after_count = pattern_counts_after.get(pattern, 0)
+        if before_count > 0:
+            success_rate = (before_count - after_count) / before_count * 100
+            print(f"{pattern_names[pattern]}: {before_count}개 → {after_count}개 ({success_rate:.1f}% 변환)")
+
+    # 최종 원 숫자 비율
+    white_circle_count = pattern_counts_after.get('white_circle', 0)
+    ox_count = pattern_counts_after.get('ox', 0)
+    print(f"\n최종 결과:")
+    print(f"  원 숫자로 통일: {white_circle_count}개 ({white_circle_count/len(df)*100:.1f}%)")
+    print(f"  O/X 유지: {ox_count}개 ({ox_count/len(df)*100:.1f}%)")
 
     return True
 
