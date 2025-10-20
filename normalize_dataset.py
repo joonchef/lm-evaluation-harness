@@ -60,14 +60,14 @@ def normalize_choices(text: str) -> str:
 
 
 def analyze_patterns(text: str) -> dict:
-    """텍스트에서 발견된 선택지 패턴 분석"""
+    """텍스트에서 발견된 선택지 패턴 분석 (줄바꿈 조건 없음)"""
     patterns = {
-        'hangul': len(re.findall(r'\n[가나다라마]\.', text)),
+        'hangul': len(re.findall(r'[가나다라마]\.', text)),
         'black_circle': sum([text.count(c) for c in ['➀', '➁', '➂', '➃', '➄']]),
         'white_circle': sum([text.count(c) for c in ['①', '②', '③', '④', '⑤']]),
-        'number_dot': len(re.findall(r'\n[1-5]\.', text)),
-        'number_colon': len(re.findall(r'\n[1-5]:', text)),
-        'number_paren': len(re.findall(r'\n[1-5]\)', text)),
+        'number_dot': len(re.findall(r'[1-5]\.', text)),
+        'number_colon': len(re.findall(r'[1-5]:', text)),
+        'number_paren': len(re.findall(r'[1-5]\)', text)),
     }
     return patterns
 
@@ -75,6 +75,9 @@ def analyze_patterns(text: str) -> dict:
 def classify_question_pattern(text: str) -> str:
     """
     문제의 선택지 패턴 분류
+
+    각 패턴이 3개 이상 나타나야 진짜 선택지로 인정
+    (2지선다 제외, 일반 문장 오탐지 방지)
 
     Returns:
         패턴 타입 문자열
@@ -91,14 +94,23 @@ def classify_question_pattern(text: str) -> str:
     if not isinstance(text, str):
         return 'unknown'
 
-    # 각 패턴 존재 여부 확인
-    has_hangul = bool(re.search(r'\n[가나다라마]\.', text))
-    has_black_circle = any(c in text for c in ['➀', '➁', '➂', '➃', '➄'])
-    has_white_circle = any(c in text for c in ['①', '②', '③', '④', '⑤'])
-    has_number_dot = bool(re.search(r'\n[1-5]\.', text))
-    has_number_colon = bool(re.search(r'\n[1-5]:', text))
-    has_number_paren = bool(re.search(r'\n[1-5]\)', text))
-    has_ox = '○' in text or '×' in text
+    # 각 패턴의 개수를 세기
+    hangul_count = len(re.findall(r'[가나다라마]\.', text))
+    black_circle_count = sum([text.count(c) for c in ['➀', '➁', '➂', '➃', '➄']])
+    white_circle_count = sum([text.count(c) for c in ['①', '②', '③', '④', '⑤']])
+    number_dot_count = len(re.findall(r'[1-5]\.', text))  # 줄바꿈 조건 제거
+    number_colon_count = len(re.findall(r'[1-5]:', text))
+    number_paren_count = len(re.findall(r'[1-5]\)', text))
+    ox_count = text.count('○') + text.count('×')
+
+    # 3개 이상일 때만 진짜 선택지로 판단 (2지선다 제외, 오탐지 감소)
+    has_hangul = hangul_count >= 3
+    has_black_circle = black_circle_count >= 3
+    has_white_circle = white_circle_count >= 3
+    has_number_dot = number_dot_count >= 3
+    has_number_colon = number_colon_count >= 3
+    has_number_paren = number_paren_count >= 3
+    has_ox = ox_count >= 2  # O/X는 2개 유지
 
     # 패턴 수집
     patterns = []
