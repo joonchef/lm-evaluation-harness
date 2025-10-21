@@ -53,11 +53,14 @@ def normalize_choices(text: str) -> tuple:
     """
     선택지 형식을 ①②③④⑤로 통일하고 줄바꿈 추가
 
-    처리 순서 (우선순위: 원숫자 > 숫자 > 한글):
+    처리 순서:
+    0. 불필요한 프리픽스 제거 ("문제 : ", "질문:", 평가 지시문 등)
     1. 보기X 형식 정규화
     2. 검은 원 숫자 → 흰 원 숫자
     3. 숫자 보기 → 원 숫자 (줄바꿈 기반)
     4. 한글 보기 → 원 숫자 (줄바꿈 기반)
+    5. 원 숫자 포맷 통일
+    6. 최종 공백 정리 (strip)
 
     Returns:
         (normalized_text, changes_list): 정규화된 텍스트와 적용된 변경사항 리스트
@@ -67,13 +70,32 @@ def normalize_choices(text: str) -> tuple:
 
     changes = []  # 적용된 변경사항 기록
 
-    # 0. 보기X 형식 전처리
+    # 0. 불필요한 프리픽스 일괄 제거
+    prefix_patterns = [
+        r'문제 : \n(\s*\d+\.)?\s*',  # "문제 : \n 32. " 또는 "문제 : \n"
+        r'문항 중\n질문에 가장 합당한 것을 선택하고, 주어진 문항 중 최 근사치를 선택한다\.?\n+',
+        r'※ 각 문제의 보기 중에서 물음에 가장 합당한 답을 고르시오\.?\s*',
+        r'보기 중\n에서 물음에 가장 합당한 답을 고르시오\.?\s*',
+        r'보기제시 및 고르기\n? \d+\.\s*',
+        r'괄호 채우기\n? \d+\.\s*',
+        r'다음 문제의 물음에 가장 적합한 것 하나만 골라 답안지에 표기하시오\.?\s*',
+        r'<[^>]+> 물음에 적합한 것 하나만 골라 그 번호를 답안지에 표기하시오\.? \(1문제당 \d+점\)\s*',
+        r'\s*질문:\s*'  # 앞뒤 공백/탭 모두 허용
+    ]
+
+    for pattern in prefix_patterns:
+        if re.search(pattern, text):
+            text = re.sub(pattern, '', text)
+            if "프리픽스 제거" not in changes:
+                changes.append("프리픽스 제거")
+
+    # 1. 보기X 형식 전처리
     # "보기1." 또는 "보기:1." → "1."로 변환
     if re.search(r'보기:?\s*[1-5]', text):  # 콜론 선택적 매칭
         text = re.sub(r'보기:?\s*([1-5])\.?\s*', r'\n\1. ', text)
         changes.append("보기X 제거")
 
-    # 1. 검은 원 숫자 → 흰 원 숫자
+    # 2. 검은 원 숫자 → 흰 원 숫자
     black_to_white = {
         '➀': '①', '➁': '②', '➂': '③', '➃': '④', '➄': '⑤'
     }
@@ -83,17 +105,17 @@ def normalize_choices(text: str) -> tuple:
             if "검은 원 → 흰 원" not in changes:
                 changes.append("검은 원 → 흰 원")
 
-    # 2. 숫자 보기 처리
-    # 2-0. 괄호 → 마침표 변환 (줄바꿈 없는 경우 포함, 먼저 처리)
+    # 3. 숫자 보기 처리
+    # 3-1. 괄호 → 마침표 변환 (줄바꿈 없는 경우 포함, 먼저 처리)
     for i in range(1, 6):
         text = re.sub(rf'{i}\)', rf'{i}.', text)
 
-    # 2-1. 콜론 → 마침표 변환 (줄바꿈 기반)
+    # 3-2. 콜론 → 마침표 변환 (줄바꿈 기반)
     if re.search(r'\n[1-5]:', text):
         text = re.sub(r'\n([1-5]):\s*', r'\n\1. ', text)
         changes.append("숫자+콜론 → 숫자+마침표")
 
-    # 2-2. 숫자 보기 줄바꿈 추가 (보기 유무와 관계없이 항상 실행)
+    # 3-3. 숫자 보기 줄바꿈 추가 (보기 유무와 관계없이 항상 실행)
     # "1. [내용]2. [내용]" → "1. [내용]\n2. [내용]"
     for i in range(1, 6):  # 1, 2, 3, 4, 5 처리
         # 케이스 1: 줄바꿈 없이 숫자+마침표 앞에 오는 모든 문자 ("①1.5%2." → "①1.5%\n2.")
@@ -103,7 +125,7 @@ def normalize_choices(text: str) -> tuple:
     # 마침표 뒤 공백 없으면 추가 ("1.[내용]" → "1. [내용]")
     text = re.sub(r'\n([1-5])\.(?=[^\s])', r'\n\1. ', text)
 
-    # 2-3. 줄바꿈 + 숫자 + 마침표 → 원 숫자 변환
+    # 3-4. 줄바꿈 + 숫자 + 마침표 → 원 숫자 변환
     if re.search(r'\n[1-5]\.', text):
         text = re.sub(r'\n1\.\s*', '\n①', text)
         text = re.sub(r'\n2\.\s*', '\n②', text)
@@ -112,7 +134,7 @@ def normalize_choices(text: str) -> tuple:
         text = re.sub(r'\n5\.\s*', '\n⑤', text)
         changes.append("숫자 보기 → 원 숫자")
 
-    # 3. 한글 보기 처리 (복합 구조 감지)
+    # 4. 한글 보기 처리 (복합 구조 감지)
     if re.search(r'\n[가나다라마]\.\s', text):
         # 복합 구조 감지
         if is_compound_structure(text):
@@ -126,6 +148,25 @@ def normalize_choices(text: str) -> tuple:
             text = re.sub(r'\n라\.\s*', '\n④', text)
             text = re.sub(r'\n마\.\s*', '\n⑤', text)
             changes.append("한글 보기 → 원 숫자")
+
+    # 5. 원 숫자 포맷 통일
+    format_normalized = False
+    for num in ['①', '②', '③', '④', '⑤']:
+        # 5-1. 앞에 줄바꿈 없는 경우 추가
+        if re.search(rf'(?<!\n){num}', text):
+            text = re.sub(rf'(?<!\n){num}', rf'\n{num}', text)
+            format_normalized = True
+
+        # 5-2. 뒤에 공백이 없거나 2개 이상인 경우 공백 1개로 통일
+        if re.search(rf'{num}(?!\s)|{num}\s\s+', text):
+            text = re.sub(rf'{num}\s*', rf'{num} ', text)
+            format_normalized = True
+
+    if format_normalized:
+        changes.append("원 숫자 포맷 통일")
+
+    # 6. 최종 공백 정리 (앞뒤 공백/줄바꿈 제거)
+    text = text.strip()
 
     return text, changes
 
@@ -189,6 +230,12 @@ def validate_question_answer(question: str, answer: str) -> tuple:
     """
     if not isinstance(question, str):
         return False, "질문이 문자열이 아님", 0, 0
+
+    # 중복 선택지 체크 (먼저 검증)
+    for circle in ['①', '②', '③', '④', '⑤']:
+        count = question.count(circle)
+        if count > 1:
+            return False, f"선택지 중복 ({circle}이(가) {count}개)", 0, 0
 
     # 원 숫자 개수 세기 (정규화 후이므로 원 숫자만 체크)
     circle_count = sum([question.count(c) for c in ['①', '②', '③', '④', '⑤']])
