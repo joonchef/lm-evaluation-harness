@@ -597,6 +597,16 @@ def normalize_dataset(input_path: str, output_path: str):
         print("\n  오류 유형별 통계:")
         for error_type, count in error_type_counts.most_common():
             print(f"    - {error_type}: {count}개")
+
+        # 검증 통과한 정제된 데이터셋 생성
+        error_indices = [e['index'] for e in validation_errors]
+        df_clean = df.drop(error_indices)
+        clean_csv_path = output_path.replace('.csv', '_clean.csv')
+        df_clean.to_csv(clean_csv_path, index=False, encoding='utf-8-sig')
+
+        print(f"\n✓ 검증 통과 데이터셋 생성: {clean_csv_path}")
+        print(f"  검증 통과 문항: {len(df_clean)}개 ({len(df_clean)/len(df)*100:.1f}%)")
+        print(f"  제거된 오류 문항: {len(error_indices)}개 ({len(error_indices)/len(df)*100:.1f}%)")
     else:
         print("\n✓ 검증 오류 없음: 모든 문항이 정상입니다.")
 
