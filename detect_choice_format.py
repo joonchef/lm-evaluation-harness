@@ -87,21 +87,46 @@ def detect_choice_format(text: str) -> str:
     # 6. 보기X 형식 (줄바꿈 기반)
     has_bogi_12345 = all(f'보기{i}' in text for i in [1, 2, 3, 4, 5])
     has_bogi_1234 = all(f'보기{i}' in text for i in [1, 2, 3, 4])
+    has_bogi_123 = all(f'보기{i}' in text for i in [1, 2, 3]) and '보기4' not in text
+    has_bogi_12 = all(f'보기{i}' in text for i in [1, 2]) and \
+                  not any(f'보기{i}' in text for i in [3, 4, 5])
 
     if has_bogi_12345:
         return '보기X형식(5지선다)'
     elif has_bogi_1234:
         return '보기X형식(4지선다)'
+    elif has_bogi_123:
+        return '보기X형식(3지선다)'
+    elif has_bogi_12:
+        return '보기X형식(2지선다)'
 
     # 7. O/X 문제
     has_ox = '○' in text and '×' in text
     if has_ox:
         return 'O/X문제'
 
-    # 8. 복구 필요 형식: 보기1234_줄바꿈없음 (마침표)
+    # 8. 복구 필요 형식: 보기_공백_숫자 (보기 + 공백 + 숫자)
+    # 보기  1. 2. 3. 형식
+    if re.search(r'보기\s+1\.', text):
+        if re.search(r'보기\s+1\..*2\..*3\..*4\..*5\.', text, re.DOTALL):
+            return '보기_공백_숫자(5지선다)'
+        elif re.search(r'보기\s+1\..*2\..*3\..*4\.', text, re.DOTALL):
+            return '보기_공백_숫자(4지선다)'
+        elif re.search(r'보기\s+1\..*2\..*3\.', text, re.DOTALL):
+            return '보기_공백_숫자(3지선다)'
+        elif re.search(r'보기\s+1\..*2\.', text, re.DOTALL):
+            return '보기_공백_숫자(2지선다)'
+
+    # 9. 복구 필요 형식: 보기1234_줄바꿈없음 (마침표)
     # 보기1이 있고, 2. 3. 4. 포함 (하지만 줄바꿈 기반 보기X 형식은 아님)
     if '보기1' in text and all(f'{i}.' in text for i in [2, 3, 4]):
         return '보기1234_줄바꿈없음'
+    # 보기1 + 2.3. (3개)
+    if '보기1' in text and all(f'{i}.' in text for i in [2, 3]) and '4.' not in text:
+        return '보기123_줄바꿈없음'
+    # 보기1 + 2. (2개)
+    if '보기1' in text and '2.' in text and not any(f'{i}.' in text for i in [3, 4]):
+        return '보기12_줄바꿈없음'
 
     # 9. 복구 필요 형식: 보기1234_괄호_줄바꿈없음 (괄호)
     # 보기1)이 있고, 2) 3) 4) 포함
